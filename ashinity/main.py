@@ -5,8 +5,18 @@ from ashinity.routers import auth, users, properties, inquiries, favorites, pays
 from ashinity.core.db import Base, engine  # <-- import Base and engine
 from ashinity import models  # <-- import models so Base knows them
 
-# Create tables at startup
-Base.metadata.create_all(bind=engine)
+# Create tables at startup only in development to avoid hard failures in production
+def _maybe_create_tables():
+    try:
+        if getattr(settings, "ENV", "development") == "development":
+            Base.metadata.create_all(bind=engine)
+    except Exception:
+        # Don't crash the app on startup if DB is temporarily unreachable;
+        # migrations should be run explicitly in production.
+        import logging
+        logging.exception("Skipping create_all on startup (DB not reachable)")
+
+_maybe_create_tables()
 
 app = FastAPI(title="Ashinity Real Estate API")
 
